@@ -12,8 +12,12 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from features.engineer import build_features, get_feature_columns
 from models.train import load_models, HORIZONS
-from models.ensemble import ensemble_predict
 from models.monitor import get_active_alerts, init_monitor_tables, compute_rolling_mae
+try:
+    from models.ensemble import ensemble_predict
+    ENSEMBLE_AVAILABLE = True
+except Exception:
+    ENSEMBLE_AVAILABLE = False
 from config import WARDS
 
 # ── App created FIRST ──
@@ -74,6 +78,9 @@ def get_ensemble_forecast(ward_id: str):
     Enhanced forecast using LSTM + XGBoost ensemble with confidence bands.
     Falls back to XGBoost-only if LSTM not trained yet.
     """
+    if not ENSEMBLE_AVAILABLE:
+        return get_forecast(ward_id)
+
     if ward_id not in WARD_MAP:
         raise HTTPException(status_code=404, detail=f"Ward '{ward_id}' not found")
 
@@ -129,7 +136,6 @@ def get_ensemble_forecast(ward_id: str):
         "forecast":         forecast_points,
         "model_version":    "ensemble_v1",
     }
-
 
 @app.get("/alerts")
 def get_alerts():

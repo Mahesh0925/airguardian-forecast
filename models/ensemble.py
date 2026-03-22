@@ -5,7 +5,12 @@ import pandas as pd
 
 from features.engineer import build_features, get_feature_columns
 from models.train import load_models as load_xgb, HORIZONS
-from models.lstm_model import load_lstm_models, predict_lstm, SEQ_LEN
+# models/ensemble.py — top of file, replace the lstm import line
+try:
+    from models.lstm_model import load_lstm_models, predict_lstm, SEQ_LEN
+    LSTM_AVAILABLE = True
+except ModuleNotFoundError:
+    LSTM_AVAILABLE = False
 
 # Weights: LSTM gets higher weight for short horizons, XGBoost for longer
 WEIGHTS = {
@@ -64,7 +69,7 @@ def ensemble_predict(ward_id: str) -> dict | None:
         return None
 
     xgb_models  = load_xgb(ward_id)
-    lstm_models = load_lstm_models(ward_id)
+lstm_models = load_lstm_models(ward_id) if LSTM_AVAILABLE else {}
 
     current_aqi = float(df["aqi"].iloc[-1])
     results = {}
