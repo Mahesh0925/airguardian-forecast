@@ -1,4 +1,3 @@
-# config.py — all ward definitions and shared settings
 import os
 from dotenv import load_dotenv
 
@@ -7,7 +6,12 @@ load_dotenv()
 AQICN_TOKEN = os.getenv("AQICN_TOKEN")
 GEE_PROJECT  = os.getenv("GEE_PROJECT")
 
-# Delhi wards — name, AQICN station keyword, lat, lon
+# Use /data on Render, local storage/ in development
+DB_PATH = os.getenv("DB_PATH", "storage/airguardian.db")
+
+# Auto-create storage dir if it doesn't exist
+os.makedirs(os.path.dirname(DB_PATH) if os.path.dirname(DB_PATH) else "storage", exist_ok=True)
+
 WARDS = [
     {"id": "wazirpur",    "name": "Wazirpur",         "aqicn": "@7021",       "lat": 28.6942, "lon": 77.1630},
     {"id": "shahdara",    "name": "Shahdara",          "aqicn": "@8684",       "lat": 28.6726, "lon": 77.2944},
@@ -21,8 +25,4 @@ WARDS = [
     {"id": "lajpatnagar", "name": "Lajpat Nagar",      "aqicn": "@9548",       "lat": 28.5677, "lon": 77.2437},
 ]
 
-# Fetch interval in minutes
 FETCH_INTERVAL_MINUTES = 15
-
-# Storage path
-DB_PATH = "storage/airguardian.db"
