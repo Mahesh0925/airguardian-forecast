@@ -1,7 +1,7 @@
 # models/ensemble.py — blends XGBoost + LSTM with confidence bands
 import numpy as np
 import pandas as pd
-from scipy import stats
+
 
 from features.engineer import build_features, get_feature_columns
 from models.train import load_models as load_xgb, HORIZONS
