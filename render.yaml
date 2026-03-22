@@ -1,6 +1,5 @@
 services:
 
-  # ── SERVICE 1: FastAPI Forecast API ──
   - type: web
     name: airguardian-api
     runtime: python
@@ -20,7 +19,6 @@ services:
       mountPath: /data
       sizeGB: 1
 
-  # ── SERVICE 2: Data Collector ──
   - type: worker
     name: airguardian-collector
     runtime: python
@@ -40,12 +38,10 @@ services:
       mountPath: /data
       sizeGB: 1
 
- # ── SERVICE 3: ML Retraining — runs once daily ──
-  - type: cron
+  - type: worker
     name: airguardian-retrain
     runtime: python
     buildCommand: pip install -r requirements.txt
-    schedule: "0 3 * * *"
     startCommand: python -m models.retrain
     envVars:
       - key: AQICN_TOKEN
