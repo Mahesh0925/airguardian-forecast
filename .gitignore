@@ -1,0 +1,24 @@
+# Virtual environment
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Trained models (too large for GitHub)
+models/saved/
+models/saved_lstm/
+
+# Database and generated files
+storage/airguardian.db
+storage/features.csv
+.cache/
+.cache.sqlite
+*.db
+
+# Secrets
+.env
+
+# Logs
+*.log
