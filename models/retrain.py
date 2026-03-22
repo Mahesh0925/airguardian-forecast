@@ -24,25 +24,11 @@ BASELINE_MAE = {6: 18.0, 12: 25.0, 24: 33.0, 48: 43.0, 72: 49.0}
 def retrain_all():
     log.info("=== Scheduled Retraining Started ===")
 
-    # 1. Retrain XGBoost (fast — ~30 seconds)
+    # Retrain XGBoost only (LSTM disabled — tensorflow not installed)
     log.info("Retraining XGBoost models...")
-    train_xgb_all()
-
-    # 2. Retrain LSTM (slower — ~5-10 minutes)
-    log.info("Retraining LSTM models...")
-    for ward in WARDS:
-        wid = ward["id"]
-        df  = build_features(wid)
-        if df is None or df.empty:
-            continue
-        log.info(f"  LSTM training {ward['name']}...")
-        models = train_lstm_ward(wid, df)
-        if models:
-            save_lstm_models(wid, models)
-            log.info(f"  Saved LSTM models for {ward['name']}")
+    train_all_xgb()
 
     log.info("=== Retraining Complete ===")
-
 
 def monitoring_cycle():
     """Run every collection cycle — fill actuals + drift check."""
