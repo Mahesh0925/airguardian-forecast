@@ -192,9 +192,9 @@ def root():
         "horizons": HORIZONS,
     }
 
-app.get("/health", (req, res) => {
-  res.send("OK");
-});
+@app.get("/health")
+def health_check():
+    return "OK"
 
 @app.get("/forecast/ensemble/{ward_id}")
 def get_ensemble_forecast(ward_id: str):
