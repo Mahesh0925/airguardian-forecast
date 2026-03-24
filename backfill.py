@@ -59,13 +59,30 @@ def backfill_ward(ward: dict):
             })
 
         if not rows:
-            print(f"  {ward['name']}: 0 rows returned")
+            print(f"  {ward['name']}: 0 rows returned from API")
             return 0
 
-        conn = sqlite3.connect(DB_PATH)
+        conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+        # Ensure table exists before inserting
+        conn.execute("""CREATE TABLE IF NOT EXISTS aqi_readings (
+            id        INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp TEXT,
+            ward_id   TEXT,
+            ward_name TEXT,
+            aqi       REAL,
+            pm25      REAL,
+            pm10      REAL,
+            no2       REAL,
+            so2       REAL,
+            co        REAL,
+            o3        REAL,
+            source    TEXT
+        )""")
+        conn.commit()
         inserted = 0
+        skipped  = 0
         for row in rows:
-            cols   = ", ".join(row.keys())
+            cols         = ", ".join(row.keys())
             placeholders = ", ".join(["?"] * len(row))
             try:
                 conn.execute(
@@ -74,10 +91,11 @@ def backfill_ward(ward: dict):
                 )
                 inserted += 1
             except Exception:
+                skipped += 1
                 continue
         conn.commit()
         conn.close()
-        print(f"  {ward['name']}: inserted {inserted} rows")
+        print(f"  {ward['name']}: inserted {inserted} rows (skipped {skipped})")
         return inserted
 
     except Exception as e:

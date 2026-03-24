@@ -6,11 +6,17 @@ load_dotenv()
 AQICN_TOKEN = os.getenv("AQICN_TOKEN")
 GEE_PROJECT  = os.getenv("GEE_PROJECT")
 
-# Use /data on Render, local storage/ in development
-DB_PATH = os.getenv("DB_PATH", "storage/airguardian.db")
+# Use /data on Render (persistent disk), local storage/ in development
+_default_db = "/data/airguardian.db" if os.path.isdir("/data") else "storage/airguardian.db"
+DB_PATH = os.getenv("DB_PATH", _default_db)
 
-# Auto-create storage dir if it doesn't exist
-os.makedirs(os.path.dirname(DB_PATH) if os.path.dirname(DB_PATH) else "storage", exist_ok=True)
+# Auto-create parent dir if it doesn't exist
+_db_dir = os.path.dirname(DB_PATH)
+if _db_dir:
+    os.makedirs(_db_dir, exist_ok=True)
+
+import logging as _logging
+_logging.getLogger(__name__).info(f"[config] DB_PATH = {DB_PATH}")
 
 WARDS = [
     {"id": "wazirpur",    "name": "Wazirpur",         "aqicn": "@7021",       "lat": 28.6942, "lon": 77.1630},

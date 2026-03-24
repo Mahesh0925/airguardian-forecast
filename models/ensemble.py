@@ -69,7 +69,7 @@ def ensemble_predict(ward_id: str) -> dict | None:
         return None
 
     xgb_models  = load_xgb(ward_id)
-lstm_models = load_lstm_models(ward_id) if LSTM_AVAILABLE else {}
+    lstm_models = load_lstm_models(ward_id) if LSTM_AVAILABLE else {}
 
     current_aqi = float(df["aqi"].iloc[-1])
     results = {}

@@ -10,4 +10,10 @@ services:
       - key: GEE_PROJECT
         sync: false
       - key: PYTHON_VERSION
-        value: 3.11.0
+        value: "3.11.0"
+      - key: DB_PATH
+        value: /data/airguardian.db
+    disk:
+      name: airguardian-data
+      mountPath: /data
+      sizeGB: 1
