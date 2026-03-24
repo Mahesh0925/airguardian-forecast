@@ -188,7 +188,7 @@ def root():
         "horizons": HORIZONS
     }
 
-@app.get("/health")
+@app.get("/health", status_code=status.HTTP_200_OK)
 def health():
     return {"status": "ok"}
 
