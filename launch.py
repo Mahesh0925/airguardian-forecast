@@ -75,6 +75,8 @@ def init_db():
 def run_collector():
     """Runs data collection every 15 minutes forever."""
     import schedule
+    from datetime import datetime
+
     try:
         from ingestion.collector import init_db as collector_init_db
         collector_init_db()
@@ -82,17 +84,81 @@ def run_collector():
         log.warning(f"[collector] collector init_db failed ({e}), using local init_db")
         init_db()
 
-    try:
-        from ingestion.collector import run_collection
-        run_collection()  # run immediately on start
-        schedule.every(15).minutes.do(run_collection)
-    except Exception as e:
-        log.error(f"[collector] run_collection failed: {e}")
+    def run_collection():
+        log.info("=== Collection cycle started ===")
+
+        # AQICN — every cycle
+        try:
+            from ingestion.aqicn import fetch_all_wards as fetch_aqi
+            aqi_data = fetch_aqi()
+            if aqi_data:
+                conn = sqlite3.connect(DB_PATH)
+                for row in aqi_data:
+                    cols = ", ".join(row.keys())
+                    ph = ", ".join(["?"] * len(row))
+                    conn.execute(f"INSERT INTO aqi_readings ({cols}) VALUES ({ph})", list(row.values()))
+                conn.commit()
+                conn.close()
+                log.info(f"Saved {len(aqi_data)} rows → aqi_readings")
+        except Exception as e:
+            log.error(f"AQI fetch failed: {e}")
+
+        # Open-Meteo — once per hour only
+        try:
+            if datetime.now().minute < 15:
+                from ingestion.openmeteo import fetch_all_wards as fetch_weather
+                weather_data = fetch_weather()
+                if weather_data:
+                    conn = sqlite3.connect(DB_PATH)
+                    for row in weather_data:
+                        # Remove forecast_json — too large to store
+                        row.pop("forecast_json", None)
+                        row.pop("source", None)
+                        cols = ", ".join(row.keys())
+                        ph = ", ".join(["?"] * len(row))
+                        try:
+                            conn.execute(f"INSERT INTO weather_readings ({cols}) VALUES ({ph})", list(row.values()))
+                        except Exception:
+                            continue
+                    conn.commit()
+                    conn.close()
+                    log.info(f"Saved {len(weather_data)} rows → weather_readings")
+            else:
+                log.info("Skipping weather fetch — runs once per hour only")
+        except Exception as e:
+            log.error(f"Weather fetch failed: {e}")
+
+        # IoT sensors — every cycle
+        try:
+            from ingestion.iot_sim import fetch_all_sensors
+            iot_data = fetch_all_sensors()
+            if iot_data:
+                conn = sqlite3.connect(DB_PATH)
+                for row in iot_data:
+                    row.pop("status", None)
+                    row.pop("source", None)
+                    row.pop("battery_pct", None)
+                    cols = ", ".join(row.keys())
+                    ph = ", ".join(["?"] * len(row))
+                    try:
+                        conn.execute(f"INSERT INTO iot_readings ({cols}) VALUES ({ph})", list(row.values()))
+                    except Exception:
+                        continue
+                conn.commit()
+                conn.close()
+                log.info(f"Saved {len(iot_data)} rows → iot_readings")
+        except Exception as e:
+            log.error(f"IoT fetch failed: {e}")
+
+        log.info("=== Collection cycle complete ===")
+
+    # Run immediately then schedule
+    run_collection()
+    schedule.every(15).minutes.do(run_collection)
 
     while True:
         schedule.run_pending()
         time.sleep(30)
-
 
 def run_retrain():
     """Runs backfill on first boot then retrains daily at 3AM."""
