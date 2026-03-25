@@ -81,6 +81,9 @@ def load_raw(ward_id: str, hours_back: int = 2000) -> pd.DataFrame:
                     "wind_direction","boundary_layer_h","precipitation"]
     merged[weather_cols] = merged[weather_cols].ffill().bfill()
 
+    merged["boundary_layer_h"] = merged["boundary_layer_h"].fillna(800)
+    merged["wind_speed"] =merged["wind_speed"].fillna(2.0)
+
     # Fill remaining NaNs with column medians
     merged = merged.fillna(merged.median(numeric_only=True))
 
@@ -152,7 +155,7 @@ def build_features(ward_id: str) -> pd.DataFrame | None:
     df["ward_id"] = ward_id
 
     # Drop rows with NaN in critical columns
-    critical_cols = ["aqi", "aqi_lag_1h", "wind_speed", "boundary_layer_h"]
+    critical_cols = ["aqi", "wind_speed"]
     df = df.dropna(subset=critical_cols)
 
     return df
