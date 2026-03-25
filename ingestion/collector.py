@@ -4,6 +4,15 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
+# Make sure this exists in ingestion/collector.py
+def init_db():
+    """Create SQLite tables if they don't exist."""
+    from pathlib import Path
+    import sqlite3
+    import os
+    db = os.environ.get("DB_PATH", "storage/airguardian.db")
+    Path(os.path.dirname(db) if os.path.dirname(db) else "storage").mkdir(exist_ok=True)
+    conn = sqlite3.connect(db)
 
 def run_collection():
     """Run one full collection cycle across all 4 sources."""
