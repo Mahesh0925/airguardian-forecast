@@ -18,7 +18,7 @@ from config import WARDS, DB_PATH
 # Forecast horizons in hours
 HORIZONS = [6, 12, 24, 48, 72]
 MODELS_DIR = "models/saved"
-MIN_ROWS_TO_TRAIN = 24  # need at least 24 hours of data
+MIN_ROWS_TO_TRAIN = 6  # need at least 24 hours of data
 
 
 def prepare_targets(df: pd.DataFrame, horizon: int) -> tuple:
