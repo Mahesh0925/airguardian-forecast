@@ -22,21 +22,20 @@ MIN_ROWS_TO_TRAIN = 6  # need at least 24 hours of data
 
 
 def prepare_targets(df: pd.DataFrame, horizon: int) -> tuple:
-    """
-    Create target variable: AQI value `horizon` hours into the future.
-    Returns X (features), y (target), dropping rows where target is NaN.
-    """
     feature_cols = get_feature_columns()
     df = df.copy()
     df[f"target_{horizon}h"] = df["aqi"].shift(-horizon)
 
-    # Drop rows where we don't have a future target yet
-    df = df.dropna(subset=[f"target_{horizon}h"] + feature_cols)
+    # Only drop rows where target or core lag features are NaN
+    critical = [f"target_{horizon}h", "aqi_lag_1h", "aqi_roll_mean_6h"]
+    df = df.dropna(subset=critical)
+
+    # Fill any remaining NaN in features with median
+    df[feature_cols] = df[feature_cols].fillna(df[feature_cols].median())
 
     X = df[feature_cols].values
     y = df[f"target_{horizon}h"].values
     return X, y
-
 
 def train_ward_models(ward_id: str) -> dict:
     """
