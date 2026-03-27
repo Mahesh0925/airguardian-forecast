@@ -261,6 +261,53 @@ def train_status():
         "model_files": [os.path.basename(m) for m in models]
     }
 
+@app.get("/admin/debug/{ward_id}")
+def debug_ward(ward_id: str):
+    """Debug feature engineering for a ward."""
+    import os
+    import sqlite3
+    from features.engineer import build_features, get_feature_columns
+
+    db = os.environ.get("DB_PATH", "storage/airguardian.db")
+
+    # Raw DB counts
+    conn = sqlite3.connect(db)
+    aqi_count = conn.execute(
+        f"SELECT COUNT(*) FROM aqi_readings WHERE ward_id='{ward_id}'"
+    ).fetchone()[0]
+    sample_ts = conn.execute(
+        f"SELECT timestamp FROM aqi_readings WHERE ward_id='{ward_id}' LIMIT 3"
+    ).fetchall()
+    conn.close()
+
+    # Feature engineering
+    df = build_features(ward_id)
+    feature_cols = get_feature_columns()
+
+    if df is None or df.empty:
+        return {"error": "build_features returned empty", "aqi_rows": aqi_count}
+
+    # Check NaN counts per feature column
+    nan_counts = {col: int(df[col].isna().sum()) for col in feature_cols if col in df.columns}
+    missing_cols = [col for col in feature_cols if col not in df.columns]
+
+    # Simulate prepare_targets for +6h
+    df2 = df.copy()
+    df2["target"] = df2["aqi"].shift(-6)
+    df2_clean = df2.dropna(subset=["target"] + feature_cols)
+
+    return {
+        "aqi_rows_in_db":    aqi_count,
+        "sample_timestamps": [r[0] for r in sample_ts],
+        "feature_rows":      len(df),
+        "feature_cols_total": len(feature_cols),
+        "missing_cols":      missing_cols,
+        "nan_counts":        nan_counts,
+        "samples_after_dropna_6h": len(df2_clean),
+        "df_columns":        list(df.columns),
+    }
+    
+
 # ── Run Server (Render Fix) ──
 if __name__ == "__main__":
     import uvicorn
