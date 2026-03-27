@@ -184,7 +184,19 @@ def build_all_wards() -> pd.DataFrame:
     return combined
 
 
-
+def get_feature_columns() -> list:
+    """Returns the exact list of feature columns the ML model expects."""
+    return [
+        "aqi_lag_1h", "aqi_lag_6h", "aqi_lag_24h", "aqi_lag_168h",
+        "pm25_lag_1h", "pm25_lag_6h",
+        "aqi_roll_mean_6h", "aqi_roll_mean_24h", "aqi_roll_std_6h", "aqi_trend_3h",
+        "wind_speed", "wind_dir_sin", "wind_dir_cos",
+        "temperature", "humidity", "boundary_layer_h", "precipitation",
+        "inversion_risk", "calm_wind",
+        "hour_sin", "hour_cos", "dow_sin", "dow_cos",
+        "month_sin", "month_cos", "is_weekend",
+        "stagnation_score",
+    ]
 
 
 if __name__ == "__main__":
