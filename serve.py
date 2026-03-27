@@ -222,6 +222,45 @@ def accuracy():
             report[wid][f"+{h}h"] = round(mae, 1) if mae else "NA"
     return report
 
+@app.get("/admin/train-now")
+def force_train():
+    """Trigger backfill + training manually — remove after first run."""
+    import threading
+    def job():
+        from backfill import backfill_ward
+        from config import WARDS
+        from models.train import train_all
+        from ingestion.collector import init_db
+        init_db()
+        total = 0
+        for ward in WARDS:
+            n = backfill_ward(ward)
+            total += n
+        if total > 0:
+            train_all()
+    threading.Thread(target=job, daemon=True).start()
+    return {"status": "started", "message": "Check /train-status in 2 minutes"}
+
+@app.get("/admin/train-status")
+def train_status():
+    """Check how many rows and models exist."""
+    import sqlite3, os, glob
+    db = os.environ.get("DB_PATH", "storage/airguardian.db")
+    conn = sqlite3.connect(db)
+    rows = {}
+    for t in ["aqi_readings", "weather_readings", "iot_readings"]:
+        try:
+            rows[t] = conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
+        except Exception:
+            rows[t] = 0
+    conn.close()
+    models = glob.glob("models/saved/*.pkl")
+    return {
+        "db_rows": rows,
+        "models_trained": len(models),
+        "model_files": [os.path.basename(m) for m in models]
+    }
+
 # ── Run Server (Render Fix) ──
 if __name__ == "__main__":
     import uvicorn
