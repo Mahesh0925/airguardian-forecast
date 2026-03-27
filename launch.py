@@ -248,4 +248,4 @@ if __name__ == "__main__":
     log.info("Starting API server...")
     import uvicorn
     port = int(os.environ.get("PORT", 10000))  # ← match Render's default
-   uvicorn.run("serve:app", host="0.0.0.0", port=int(os.environ.get("PORT", 10000)), log_level="info")
+    uvicorn.run("serve:app", host="0.0.0.0", port=int(os.environ.get("PORT", 10000)), log_level="info")
