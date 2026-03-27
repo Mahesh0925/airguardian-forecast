@@ -306,7 +306,20 @@ def debug_ward(ward_id: str):
         "samples_after_dropna_6h": len(df2_clean),
         "df_columns":        list(df.columns),
     }
-    
+
+@app.get("/admin/seed-csv")
+def seed_csv():
+    """One-time: load CSV training data into DB then train models."""
+    import threading
+
+    def job():
+        import subprocess
+        subprocess.run(["python", "seed_csv.py"], check=True)
+        from models.train import train_all
+        train_all()
+
+    threading.Thread(target=job, daemon=True).start()
+    return {"status": "started", "message": "Seeding + training running in background. Check /admin/train-status in 3 minutes."}
 
 # ── Run Server (Render Fix) ──
 if __name__ == "__main__":
