@@ -243,6 +243,17 @@ if __name__ == "__main__":
     time.sleep(10)
 
     # Step 4: Start FastAPI in foreground (this blocks)
+    
     log.info("Starting API server...")
+    log.info("Testing serve.py import...")
+    try:
+        import serve
+        log.info("serve.py imported successfully")
+    except Exception as e:
+        log.error(f"serve.py import failed: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
+
     import uvicorn
-    uvicorn.run("serve:app", host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))
+    uvicorn.run("serve:app", host="0.0.0.0", port=int(os.environ.get("PORT", 8000)), log_level="info")
