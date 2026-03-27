@@ -7,8 +7,9 @@ from datetime import datetime, timezone
 from config import DB_PATH, WARDS
 
 def load_raw(ward_id: str, hours_back: int = 2000) -> pd.DataFrame:
-    """Load last N hours of all raw data for a ward, merged into one DataFrame."""
-    conn = sqlite3.connect(DB_PATH)
+    import os
+    db = os.environ.get("DB_PATH", "storage/airguardian.db")
+    conn = sqlite3.connect(db)
 
     aqi_df = pd.read_sql_query(f"""
         SELECT timestamp, aqi, pm25, pm10, no2, so2, co, o3
@@ -26,8 +27,7 @@ def load_raw(ward_id: str, hours_back: int = 2000) -> pd.DataFrame:
     """, conn, parse_dates=["timestamp"])
 
     iot_df = pd.read_sql_query(f"""
-        SELECT timestamp, AVG(pm25) as iot_pm25, AVG(pm10) as iot_pm10,
-               AVG(temperature) as iot_temp, AVG(humidity) as iot_humidity
+        SELECT timestamp, AVG(pm25) as iot_pm25, AVG(pm10) as iot_pm10
         FROM iot_readings
         WHERE ward_id = '{ward_id}'
         GROUP BY timestamp
@@ -36,58 +36,63 @@ def load_raw(ward_id: str, hours_back: int = 2000) -> pd.DataFrame:
 
     conn.close()
 
-    # ── KEY FIX: normalize all timestamps to UTC-naive, floored to hour ──
+    if aqi_df.empty:
+        return pd.DataFrame()
+
+    # Normalize all timestamps to UTC-naive floored to hour
     for df in [aqi_df, weather_df, iot_df]:
         if df.empty:
             continue
-        # Strip timezone info so all timestamps are comparable
-        df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True) \
-                            .dt.tz_localize(None) \
-                            .dt.floor("h")
+        df["timestamp"] = pd.to_datetime(
+            df["timestamp"], utc=True, errors="coerce"
+        ).dt.tz_localize(None).dt.floor("h")
 
-    # Force numeric on all non-timestamp columns
+    # Force numeric on all columns
     for df in [aqi_df, weather_df, iot_df]:
         if df.empty:
             continue
         num_cols = [c for c in df.columns if c != "timestamp"]
         df[num_cols] = df[num_cols].apply(pd.to_numeric, errors="coerce")
 
-    # If no weather data yet, build a synthetic weather column
-    # so AQI rows still produce usable feature rows
-    if weather_df.empty:
-        weather_df = pd.DataFrame({"timestamp": aqi_df["timestamp"].unique()})
-        for col in ["temperature","humidity","wind_speed",
-                    "wind_direction","boundary_layer_h","precipitation"]:
-            weather_df[col] = np.nan
+    # Deduplicate AQI rows by hour — keep mean
+    aqi_df = aqi_df.groupby("timestamp", as_index=False).mean(numeric_only=True)
+    aqi_df = aqi_df.sort_values("timestamp").reset_index(drop=True)
 
-    # Merge — use AQI as the base, left-join weather and IoT
-    merged = aqi_df.merge(weather_df, on="timestamp", how="left")
-    if not iot_df.empty:
-        merged = merged.merge(iot_df, on="timestamp", how="left")
+    # ── KEY FIX: don't join weather — synthesize it from AQI data ──
+    # Weather fetch is failing/empty on Render so we build fallback values
+    if weather_df.empty or len(weather_df) < 5:
+        # Use neutral defaults — model still trains on AQI lag features
+        aqi_df["temperature"]    = 22.0
+        aqi_df["humidity"]       = 60.0
+        aqi_df["wind_speed"]     = 3.0
+        aqi_df["wind_direction"] = 180.0
+        aqi_df["boundary_layer_h"] = 800.0
+        aqi_df["precipitation"]  = 0.0
     else:
-        merged["iot_pm25"]  = merged["pm25"]
-        merged["iot_pm10"]  = merged["pm10"]
-        merged["iot_temp"]  = merged["temperature"]
-        merged["iot_humidity"] = merged["humidity"]
+        weather_df = weather_df.groupby("timestamp", as_index=False).mean(numeric_only=True)
+        aqi_df = aqi_df.merge(weather_df, on="timestamp", how="left")
+        weather_cols = ["temperature","humidity","wind_speed",
+                        "wind_direction","boundary_layer_h","precipitation"]
+        aqi_df[weather_cols] = aqi_df[weather_cols].ffill().bfill().fillna({
+            "temperature": 22.0, "humidity": 60.0, "wind_speed": 3.0,
+            "wind_direction": 180.0, "boundary_layer_h": 800.0, "precipitation": 0.0
+        })
 
-    merged = merged.sort_values("timestamp").reset_index(drop=True)
+    # IoT fusion
+    if not iot_df.empty:
+        iot_df = iot_df.groupby("timestamp", as_index=False).mean(numeric_only=True)
+        aqi_df = aqi_df.merge(iot_df, on="timestamp", how="left")
+        aqi_df["iot_pm25"] = aqi_df.get("iot_pm25", aqi_df["pm25"])
+        aqi_df["iot_pm10"] = aqi_df.get("iot_pm10", aqi_df["pm10"])
+    else:
+        aqi_df["iot_pm25"] = aqi_df["pm25"]
+        aqi_df["iot_pm10"] = aqi_df["pm10"]
 
-    # Deduplicate same-hour readings — keep the mean
-    merged = merged.groupby("timestamp", as_index=False).mean(numeric_only=True)
-    merged = merged.sort_values("timestamp").reset_index(drop=True)
+    # Fill remaining NaNs
+    aqi_df = aqi_df.fillna(aqi_df.median(numeric_only=True))
+    aqi_df = aqi_df.sort_values("timestamp").reset_index(drop=True)
 
-    # Fill weather gaps with forward/backward fill
-    weather_cols = ["temperature","humidity","wind_speed",
-                    "wind_direction","boundary_layer_h","precipitation"]
-    merged[weather_cols] = merged[weather_cols].ffill().bfill()
-
-    merged["boundary_layer_h"] = merged["boundary_layer_h"].fillna(800)
-    merged["wind_speed"] =merged["wind_speed"].fillna(2.0)
-
-    # Fill remaining NaNs with column medians
-    merged = merged.fillna(merged.median(numeric_only=True))
-
-    return merged
+    return aqi_df
 
 def build_features(ward_id: str) -> pd.DataFrame | None:
     """
