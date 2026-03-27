@@ -223,10 +223,12 @@ def _retrain_job():
     log.info("Scheduled retrain complete")
 
 
+# REPLACE everything from "# Small wait..." to the end with this:
+
 if __name__ == "__main__":
     log.info("AirGuardian starting all services...")
 
-    # Step 1: Initialize DB tables FIRST (before any thread touches the DB)
+    # Step 1: Initialize DB tables FIRST
     init_db()
 
     # Step 2: Start collector in background thread
@@ -239,21 +241,11 @@ if __name__ == "__main__":
     t2.start()
     log.info("Retrain pipeline started")
 
-    # Small wait to let collector init DB before API starts
-    time.sleep(10)
+    # ❌ REMOVE: time.sleep(10)  ← this was delaying port binding
+    # ❌ REMOVE: the manual "import serve" test block
 
-    # Step 4: Start FastAPI in foreground (this blocks)
-    
+    # Step 4: Start FastAPI IMMEDIATELY (Render needs port bound fast)
     log.info("Starting API server...")
-    log.info("Testing serve.py import...")
-    try:
-        import serve
-        log.info("serve.py imported successfully")
-    except Exception as e:
-        log.error(f"serve.py import failed: {e}")
-        import traceback
-        traceback.print_exc()
-        raise
-
     import uvicorn
-    uvicorn.run("serve:app", host="0.0.0.0", port=int(os.environ.get("PORT", 8000)), log_level="info")
+    port = int(os.environ.get("PORT", 10000))  # ← match Render's default
+   uvicorn.run("serve:app", host="0.0.0.0", port=int(os.environ.get("PORT", 10000)), log_level="info")

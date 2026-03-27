@@ -5,6 +5,8 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: python launch.py
     envVars:
+      - key: PORT          # ✅ space after colon
+        value: "10000"     # ✅ space after colon, quoted
       - key: AQICN_TOKEN
         sync: false
       - key: GEE_PROJECT
